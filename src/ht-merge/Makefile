@@ -16,7 +16,7 @@ endif
 
 .PHONY:clean
 
-ht-merge:ht-merge.cpp khashl.h unordered_dense.h stl.h
+ht-merge:ht-merge.cpp khashl.h shardmap.h unordered_dense.h stl.h
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -o $@ $< $(LDFLAGS)
 
 clean:
