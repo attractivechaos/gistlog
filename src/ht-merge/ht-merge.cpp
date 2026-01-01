@@ -175,10 +175,6 @@ void htm_eval_khashl(uint32_t N, uint64_t *rng, int no_reserve)
  * main function *
  *****************/
 
-#ifdef USE_SHARD
-#include "shardmap.h"
-#endif
-
 #include "ketopt.h"
 
 int main(int argc, char *argv[])
@@ -207,16 +203,6 @@ int main(int argc, char *argv[])
 	}
 	algo = atoi(argv[o.ind]);
 	if (algo == 1) htm_eval_khashl(N, &rng, no_reserve);
-#ifdef USE_SHARD
-	else if (algo == 2) CppEval<ShardMap<std::unordered_map<uint64_t, uint64_t, Hasher>>> run("std::unordered_map", N, &rng, no_reserve);
-	else if (algo == 3) CppEval<ShardMap<ankerl::unordered_dense::map<uint64_t, uint64_t, Hasher>>> run("unordered_dense", N, &rng, no_reserve);
-#ifdef HAVE_BOOST
-	else if (algo == 4) CppEval<ShardMap<boost::unordered_flat_map<uint64_t, uint64_t, Hasher>>> run("boost", N, &rng, no_reserve);
-#endif
-#ifdef HAVE_ABSEIL
-	else if (algo == 5) CppEval<ShardMap<absl::flat_hash_map<uint64_t, uint64_t, Hasher>>> run("abseil", N, &rng, no_reserve);
-#endif
-#else
 	else if (algo == 2) CppEval<std::unordered_map<uint64_t, uint64_t, Hasher>> run("std::unordered_map", N, &rng, no_reserve);
 	else if (algo == 3) CppEval<ankerl::unordered_dense::map<uint64_t, uint64_t, Hasher>> run("unordered_dense", N, &rng, no_reserve);
 #ifdef HAVE_BOOST
@@ -224,7 +210,6 @@ int main(int argc, char *argv[])
 #endif
 #ifdef HAVE_ABSEIL
 	else if (algo == 5) CppEval<absl::flat_hash_map<uint64_t, uint64_t, Hasher>> run("abseil", N, &rng, no_reserve);
-#endif
 #endif
 	else abort(); // unknown algorithm
 	return 0;
