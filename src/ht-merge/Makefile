@@ -10,6 +10,9 @@ ifneq ($(abseil),)
 	CPPFLAGS+=-DHAVE_ABSEIL
 	LDFLAGS+=$(shell pkg-config --libs absl_flat_hash_map absl_hash)
 endif
+ifneq ($(rand),)
+	CPPFLAGS+=-DUSE_RAND
+endif
 ifneq ($(shard),)
 	CPPFLAGS+=-DUSE_SHARD
 endif
