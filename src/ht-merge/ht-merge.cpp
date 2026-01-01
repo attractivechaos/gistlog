@@ -105,7 +105,7 @@ void htm_merge_cpp(T &h0, const T &h1, int to_reserve)
 template<typename T>
 class CppEval {
 public:
-	CppEval(const char *label, uint32_t N, uint64_t *rng, int no_reserve) {
+	CppEval(const char *label, uint32_t N, uint64_t *rng, int to_reserve) {
 #ifdef USE_RAND
 		Hasher f1(42), f2(43);
 		T h0(8, f1), h1(8, f2);
@@ -116,7 +116,7 @@ public:
 		double t0 = kom_cputime();
 		htm_gen_cpp(h1, N*2, rng);
 		double t1 = kom_cputime();
-		htm_merge_cpp(h0, h1, !no_reserve);
+		htm_merge_cpp(h0, h1, to_reserve);
 		double t2 = kom_cputime();
 		printf("%s\t%.3f\t%.3f\n", label, t1 - t0, t2 - t1);
 	}
@@ -158,13 +158,13 @@ void htm_merge_khashl(map64_t *h0, const map64_t *h1, int to_reserve)
 	}
 }
 
-void htm_eval_khashl(uint32_t N, uint64_t *rng, int no_reserve)
+void htm_eval_khashl(uint32_t N, uint64_t *rng, int to_reserve)
 {
 	map64_t *h0 = htm_gen_khashl(N, rng, 42);
 	double t0 = kom_cputime();
 	map64_t *h1 = htm_gen_khashl(N*2, rng, 43);
 	double t1 = kom_cputime();
-	htm_merge_khashl(h0, h1, !no_reserve);
+	htm_merge_khashl(h0, h1, to_reserve);
 	double t2 = kom_cputime();
 	printf("khashl\t%.3f\t%.3f\n", t1 - t0, t2 - t1);
 	map64_destroy(h0);
@@ -182,11 +182,11 @@ int main(int argc, char *argv[])
 	uint64_t rng = 11;
 	uint32_t N = 19000000;
 	double t0, t1, t2;
-	int c, algo = 0, no_reserve = 0;
+	int c, algo = 0, to_reserve = 0;
 	ketopt_t o = KETOPT_INIT;
 
 	while ((c = ketopt(&o, argc, argv, 1, "rn:a:", 0)) >= 0) {
-		if (c == 'r') no_reserve = 1;
+		if (c == 'r') to_reserve = 1;
 		else if (c == 'n') N = kom_parse_num(o.arg, 0);
 		else if (c == 'a') algo = atoi(o.arg);
 		else abort(); // unknown option
@@ -202,14 +202,14 @@ int main(int argc, char *argv[])
 		return 1; 
 	}
 	algo = atoi(argv[o.ind]);
-	if (algo == 1) htm_eval_khashl(N, &rng, no_reserve);
-	else if (algo == 2) CppEval<std::unordered_map<uint64_t, uint64_t, Hasher>> run("std::unordered_map", N, &rng, no_reserve);
-	else if (algo == 3) CppEval<ankerl::unordered_dense::map<uint64_t, uint64_t, Hasher>> run("unordered_dense", N, &rng, no_reserve);
+	if (algo == 1) htm_eval_khashl(N, &rng, to_reserve);
+	else if (algo == 2) CppEval<std::unordered_map<uint64_t, uint64_t, Hasher>> run("std::unordered_map", N, &rng, to_reserve);
+	else if (algo == 3) CppEval<ankerl::unordered_dense::map<uint64_t, uint64_t, Hasher>> run("unordered_dense", N, &rng, to_reserve);
 #ifdef HAVE_BOOST
-	else if (algo == 4) CppEval<boost::unordered_flat_map<uint64_t, uint64_t, Hasher>> run("boost", N, &rng, no_reserve);
+	else if (algo == 4) CppEval<boost::unordered_flat_map<uint64_t, uint64_t, Hasher>> run("boost", N, &rng, to_reserve);
 #endif
 #ifdef HAVE_ABSEIL
-	else if (algo == 5) CppEval<absl::flat_hash_map<uint64_t, uint64_t, Hasher>> run("abseil", N, &rng, no_reserve);
+	else if (algo == 5) CppEval<absl::flat_hash_map<uint64_t, uint64_t, Hasher>> run("abseil", N, &rng, to_reserve);
 #endif
 	else abort(); // unknown algorithm
 	return 0;
