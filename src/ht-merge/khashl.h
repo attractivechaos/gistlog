@@ -116,7 +116,8 @@ static kh_inline khint_t __kh_h2b(khint_t hash, khint_t salt, khint_t bits) { re
 #define __KHASHL_TYPE(HType, khkey_t) \
 	typedef struct HType { \
 		void *km; \
-		khint_t bits, salt, count; /* wasting 4 bytes on 64-bit OS */ \
+		unsigned short bits, salt; \
+		khint_t count; \
 		khint32_t *used; \
 		khkey_t *keys; \
 	} HType;
