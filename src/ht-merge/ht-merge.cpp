@@ -50,19 +50,22 @@ static inline uint64_t htm_hash64(uint64_t x) // from https://nullprogram.com/bl
 }
 
 #ifdef USE_RAND
+#include <random>
 class Hasher {
-	uint64_t rng, hash_seed;
+	using is_avalanching = void;
+	size_t seed;
 public:
-	Hasher(uint64_t rng_seed) {
-		rng = rng_seed;
-		hash_seed = kom_splitmix64(&rng);
+	Hasher(void) {
+		std::random_device rd;
+        seed = std::uniform_int_distribution<size_t>{}(rd);
 	}
 	inline size_t operator()(const uint64_t x) const {
-		return htm_hash64(x ^ hash_seed);
+		return htm_hash64(x ^ seed); // abseil doesn't like htm_hash64(x) ^ seed
 	}
 };
 #else
 struct Hasher {
+	using is_avalanching = void;
 	inline size_t operator()(const uint64_t x) const {
 		return htm_hash64(x);
 	}
@@ -106,12 +109,7 @@ template<typename T>
 class CppEval {
 public:
 	CppEval(const char *label, uint32_t N, uint64_t *rng, int to_reserve) {
-#ifdef USE_RAND
-		Hasher f1(42), f2(43);
-		T h0(8, f1), h1(8, f2);
-#else
 		T h0, h1;
-#endif
 		htm_gen_cpp(h0, N, rng);
 		double t0 = kom_cputime();
 		htm_gen_cpp(h1, N*2, rng);
@@ -134,7 +132,11 @@ map64_t *htm_gen_khashl(uint32_t N, uint64_t *rng, uint32_t seed)
 {
 	uint32_t i;
 	map64_t *h;
+#ifdef USE_RAND
 	h = map64_init3(0, seed);
+#else
+	h = map64_init();
+#endif
 	for (i = 0; i < N; ++i) {
 		uint64_t x = kom_splitmix64(rng);
 		int absent;
@@ -150,7 +152,13 @@ void htm_merge_khashl(map64_t *h0, const map64_t *h1, int to_reserve)
 	khint_t k0, k1;
 	if (to_reserve)
 		map64_resize(h0, ((uint64_t)kh_size(h0) + kh_size(h1)) * 4 / 3 + 1);
-	kh_foreach(h1, k1) {
+	#ifdef USE_RAND
+	kh_foreach(h1, k1)
+	#else
+	khint_t i;
+	for (i = 0, k1 = 0; i != kh_end(h1); ++i, k1 = (k1 + 7) & (kh_end(h1) - 1)) if (kh_exist(h1, k1))
+	#endif
+	{
 		int absent;
 		k0 = map64_put(h0, kh_key(h1, k1), &absent);
 		if (absent) kh_val(h0, k0) = 0;
@@ -203,6 +211,16 @@ int main(int argc, char *argv[])
 	}
 	algo = atoi(argv[o.ind]);
 	if (algo == 1) htm_eval_khashl(N, &rng, to_reserve);
+#ifdef USE_DEFAULT
+	else if (algo == 2) CppEval<std::unordered_map<uint64_t, uint64_t>> run("std::unordered_map", N, &rng, to_reserve);
+	else if (algo == 3) CppEval<ankerl::unordered_dense::map<uint64_t, uint64_t>> run("unordered_dense", N, &rng, to_reserve);
+#ifdef HAVE_BOOST
+	else if (algo == 4) CppEval<boost::unordered_flat_map<uint64_t, uint64_t>> run("boost", N, &rng, to_reserve);
+#endif
+#ifdef HAVE_ABSEIL
+	else if (algo == 5) CppEval<absl::flat_hash_map<uint64_t, uint64_t>> run("abseil", N, &rng, to_reserve);
+#endif
+#else // USE_DEFAULT
 	else if (algo == 2) CppEval<std::unordered_map<uint64_t, uint64_t, Hasher>> run("std::unordered_map", N, &rng, to_reserve);
 	else if (algo == 3) CppEval<ankerl::unordered_dense::map<uint64_t, uint64_t, Hasher>> run("unordered_dense", N, &rng, to_reserve);
 #ifdef HAVE_BOOST
@@ -211,6 +229,7 @@ int main(int argc, char *argv[])
 #ifdef HAVE_ABSEIL
 	else if (algo == 5) CppEval<absl::flat_hash_map<uint64_t, uint64_t, Hasher>> run("abseil", N, &rng, to_reserve);
 #endif
+#endif // USE_DEFAULT
 	else abort(); // unknown algorithm
 	return 0;
 }

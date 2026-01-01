@@ -13,6 +13,9 @@ endif
 ifneq ($(rand),)
 	CPPFLAGS+=-DUSE_RAND
 endif
+ifneq ($(default),)
+	CPPFLAGS+=-DUSE_DEFAULT
+endif
 
 .PHONY:clean
 
