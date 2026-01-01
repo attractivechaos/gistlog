@@ -132,11 +132,10 @@ map64_t *htm_gen_khashl(uint32_t N, uint64_t *rng, uint32_t seed)
 {
 	uint32_t i;
 	map64_t *h;
-#ifdef USE_RAND
-	h = map64_init3(0, seed);
-#else
-	h = map64_init();
+#ifndef USE_RAND
+	seed = 0; // disable seeding
 #endif
+	h = map64_init3(0, seed);
 	for (i = 0; i < N; ++i) {
 		uint64_t x = kom_splitmix64(rng);
 		int absent;
@@ -149,20 +148,20 @@ map64_t *htm_gen_khashl(uint32_t N, uint64_t *rng, uint32_t seed)
 
 void htm_merge_khashl(map64_t *h0, const map64_t *h1, int to_reserve)
 {
-	khint_t k0, k1;
+	khint_t k0, k1, i, step = to_reserve? 1 : 7;
 	if (to_reserve)
 		map64_resize(h0, ((uint64_t)kh_size(h0) + kh_size(h1)) * 4 / 3 + 1);
-	#ifdef USE_RAND
-	kh_foreach(h1, k1)
-	#else
-	khint_t i;
-	for (i = 0, k1 = 0; i != kh_end(h1); ++i, k1 = (k1 + 7) & (kh_end(h1) - 1)) if (kh_exist(h1, k1))
-	#endif
-	{
-		int absent;
-		k0 = map64_put(h0, kh_key(h1, k1), &absent);
-		if (absent) kh_val(h0, k0) = 0;
-		kh_val(h0, k0) += kh_val(h1, k1);
+#ifdef USE_RAND
+	step = 1; // okay to use step=1 in the seeded mode
+#endif
+	for (i = 0, k1 = 0; i != kh_end(h1); ++i) {
+		if (kh_exist(h1, k1)) {
+			int absent;
+			k0 = map64_put(h0, kh_key(h1, k1), &absent);
+			if (absent) kh_val(h0, k0) = 0;
+			kh_val(h0, k0) += kh_val(h1, k1);
+		}
+		k1 = (k1 + step) & (kh_end(h1) - 1);
 	}
 }
 
