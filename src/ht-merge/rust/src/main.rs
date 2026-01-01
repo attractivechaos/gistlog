@@ -1,4 +1,5 @@
 use clap::Parser;
+use std::hash::{BuildHasher, Hasher};
 use std::process;
 use std::time::Instant;
 
@@ -16,6 +17,43 @@ struct Args {
     /// Reserve before merge
     #[arg(short = 'r', action = clap::ArgAction::SetTrue)]
     reserve: bool,
+
+    /// Use default hash function
+    #[arg(short = 'd', action = clap::ArgAction::SetTrue)]
+    default_hash: bool,
+}
+
+fn htm_hash64(mut x: u64) -> u64 {
+    x ^= x >> 32;
+    x = x.wrapping_mul(0xd6e8feb86659fd93);
+    x ^= x >> 32;
+    x = x.wrapping_mul(0xd6e8feb86659fd93);
+    x ^= x >> 32;
+    x
+}
+
+#[derive(Default, Clone, Copy)]
+struct FastBuildHasher;
+
+impl BuildHasher for FastBuildHasher {
+    type Hasher = FastHasher;
+    fn build_hasher(&self) -> Self::Hasher {
+        FastHasher(0)
+    }
+}
+
+struct FastHasher(u64);
+
+impl Hasher for FastHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+    fn write(&mut self, _bytes: &[u8]) {
+        panic!("htm_hash64 only supports u64 keys");
+    }
+    fn write_u64(&mut self, i: u64) {
+        self.0 = htm_hash64(i);
+    }
 }
 
 fn splitmix64(x: &mut u64) -> u64 {
@@ -53,7 +91,7 @@ macro_rules! run_benchmark {
             let mut rng = 11;
             
             // h0 generation
-            let mut h0 = <$map_type>::new();
+            let mut h0 = <$map_type>::default();
             for _ in 0..$n {
                 let x = splitmix64(&mut rng);
                 *h0.entry(x).or_insert(0) += 1;
@@ -62,7 +100,7 @@ macro_rules! run_benchmark {
             let t0 = Instant::now();
             
             // h1 generation
-            let mut h1 = <$map_type>::new();
+            let mut h1 = <$map_type>::default();
             for _ in 0..($n * 2) {
                 let x = splitmix64(&mut rng);
                 *h1.entry(x).or_insert(0) += 1;
@@ -94,12 +132,23 @@ fn main() {
     let n = parse_num(&args.n);
     let reserve = args.reserve;
 
-    match args.algorithm {
-        1 => run_benchmark!(std::collections::HashMap<u64, u64>, "rust_std", n, reserve),
-        2 => run_benchmark!(hashbrown::HashMap<u64, u64>, "hashbrown", n, reserve),
-        _ => {
-            eprintln!("Unknown algorithm: {}", args.algorithm);
-            process::exit(1);
+    if args.default_hash {
+        match args.algorithm {
+            1 => run_benchmark!(std::collections::HashMap<u64, u64>, "rust_std", n, reserve),
+            2 => run_benchmark!(hashbrown::HashMap<u64, u64>, "hashbrown", n, reserve),
+            _ => {
+                eprintln!("Unknown algorithm: {}", args.algorithm);
+                process::exit(1);
+            }
+        }
+    } else {
+        match args.algorithm {
+            1 => run_benchmark!(std::collections::HashMap<u64, u64, FastBuildHasher>, "rust_std", n, reserve),
+            2 => run_benchmark!(hashbrown::HashMap<u64, u64, FastBuildHasher>, "hashbrown", n, reserve),
+            _ => {
+                eprintln!("Unknown algorithm: {}", args.algorithm);
+                process::exit(1);
+            }
         }
     }
 }
