@@ -124,7 +124,6 @@ public:
  * khashl *
  **********/
 
-//#define kh_quadratic
 #include "khashl.h"
 KHASHL_MAP_INIT(KH_LOCAL, map64_t, map64, uint64_t, uint64_t, htm_hash64, kh_eq_generic)
 
@@ -187,7 +186,7 @@ void htm_eval_khashl(uint32_t N, uint64_t *rng, int to_reserve)
 int main(int argc, char *argv[])
 {
 	uint64_t rng = 11;
-	uint32_t N = 19000000;
+	uint32_t N = 20000000;
 	double t0, t1, t2;
 	int c, algo = 0, to_reserve = 0;
 	ketopt_t o = KETOPT_INIT;
