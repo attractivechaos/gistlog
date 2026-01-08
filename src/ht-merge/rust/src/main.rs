@@ -21,6 +21,10 @@ struct Args {
     /// Use default hash function
     #[arg(short = 'd', action = clap::ArgAction::SetTrue)]
     default_hash: bool,
+
+    /// Use fxhash
+    #[arg(short = 'f', action = clap::ArgAction::SetTrue)]
+    fx_hash: bool,
 }
 
 fn htm_hash64(mut x: u64) -> u64 {
@@ -132,7 +136,16 @@ fn main() {
     let n = parse_num(&args.n);
     let reserve = args.reserve;
 
-    if args.default_hash {
+    if args.fx_hash {
+        match args.algorithm {
+            1 => run_benchmark!(std::collections::HashMap<u64, u64, fxhash::FxBuildHasher>, "rust_std", n, reserve),
+            2 => run_benchmark!(hashbrown::HashMap<u64, u64, fxhash::FxBuildHasher>, "hashbrown", n, reserve),
+            _ => {
+                eprintln!("Unknown algorithm: {}", args.algorithm);
+                process::exit(1);
+            }
+        }
+    } else if args.default_hash {
         match args.algorithm {
             1 => run_benchmark!(std::collections::HashMap<u64, u64>, "rust_std", n, reserve),
             2 => run_benchmark!(hashbrown::HashMap<u64, u64>, "hashbrown", n, reserve),
