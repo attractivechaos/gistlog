@@ -25,6 +25,10 @@ struct Args {
     /// Use fxhash
     #[arg(short = 'f', action = clap::ArgAction::SetTrue)]
     fx_hash: bool,
+
+    /// Use extend() instead of iteration
+    #[arg(short = 'e', action = clap::ArgAction::SetTrue)]
+    extend: bool,
 }
 
 fn htm_hash64(mut x: u64) -> u64 {
@@ -90,7 +94,7 @@ fn parse_num(s: &str) -> u64 {
 }
 
 macro_rules! run_benchmark {
-    ($map_type:ty, $label:expr, $n:expr, $reserve:expr) => {
+    ($map_type:ty, $label:expr, $n:expr, $reserve:expr, $extend:expr) => {
         {
             let mut rng = 11;
             
@@ -116,8 +120,12 @@ macro_rules! run_benchmark {
             if $reserve {
                 h0.reserve(h1.len());
             }
-            for (k, v) in &h1 {
-                *h0.entry(*k).or_insert(0) += v;
+            if $extend {
+                h0.extend(h1);
+            } else {
+                for (k, v) in &h1 {
+                    *h0.entry(*k).or_insert(0) += v;
+                }
             }
             
             let t2 = Instant::now();
@@ -135,11 +143,12 @@ fn main() {
     
     let n = parse_num(&args.n);
     let reserve = args.reserve;
+    let extend = args.extend;
 
     if args.fx_hash {
         match args.algorithm {
-            1 => run_benchmark!(std::collections::HashMap<u64, u64, fxhash::FxBuildHasher>, "rust_std", n, reserve),
-            2 => run_benchmark!(hashbrown::HashMap<u64, u64, fxhash::FxBuildHasher>, "hashbrown", n, reserve),
+            1 => run_benchmark!(std::collections::HashMap<u64, u64, fxhash::FxBuildHasher>, "rust_std", n, reserve, extend),
+            2 => run_benchmark!(hashbrown::HashMap<u64, u64, fxhash::FxBuildHasher>, "hashbrown", n, reserve, extend),
             _ => {
                 eprintln!("Unknown algorithm: {}", args.algorithm);
                 process::exit(1);
@@ -147,8 +156,8 @@ fn main() {
         }
     } else if args.default_hash {
         match args.algorithm {
-            1 => run_benchmark!(std::collections::HashMap<u64, u64>, "rust_std", n, reserve),
-            2 => run_benchmark!(hashbrown::HashMap<u64, u64>, "hashbrown", n, reserve),
+            1 => run_benchmark!(std::collections::HashMap<u64, u64>, "rust_std", n, reserve, extend),
+            2 => run_benchmark!(hashbrown::HashMap<u64, u64>, "hashbrown", n, reserve, extend),
             _ => {
                 eprintln!("Unknown algorithm: {}", args.algorithm);
                 process::exit(1);
@@ -156,8 +165,8 @@ fn main() {
         }
     } else {
         match args.algorithm {
-            1 => run_benchmark!(std::collections::HashMap<u64, u64, FastBuildHasher>, "rust_std", n, reserve),
-            2 => run_benchmark!(hashbrown::HashMap<u64, u64, FastBuildHasher>, "hashbrown", n, reserve),
+            1 => run_benchmark!(std::collections::HashMap<u64, u64, FastBuildHasher>, "rust_std", n, reserve, extend),
+            2 => run_benchmark!(hashbrown::HashMap<u64, u64, FastBuildHasher>, "hashbrown", n, reserve, extend),
             _ => {
                 eprintln!("Unknown algorithm: {}", args.algorithm);
                 process::exit(1);
